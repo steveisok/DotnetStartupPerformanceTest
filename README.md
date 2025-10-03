@@ -56,6 +56,34 @@ public class Function
 
 The file [LambdaCaptures/dotnet10-metrics.txt](./LambdaCaptures/dotnet10-metrics.txt) is a run for .NET 10 and [LambdaCaptures/dotnet8-metrics.txt](./LambdaCaptures/dotnet8-metrics.txt).
 
+
+## Simulate locally with Lambda emulator
+
+The [LambdaEmulatorPerformanceRunner](./LambdaEmulatorPerformanceRunner) project attempts to simulate the issue using the Lambda Runtime Interface Emulator (RIE) 
+running as a container. It builds the [LambdaWithEmulatorTest](./LambdaWithEmulatorTest) Lambda project as a container using the `public.ecr.aws/lambda/provided:al2023`
+base image which has the RIE installed in it. A .NET 8 image will be built with tag `lambda-coldstart-issue:net8.0` and the .NET 10 version tag will 
+`lambda-coldstart-issue:net10.0`. 
+
+It will run for 50 iterations for each container doing the following steps.
+* Start the container which will start up the RIE mapping the container port 8080 to host port 9000.
+  * The container is started with the `--cpus=0.1` to simulate Lambda environment running with limited CPU.
+* Send an HTTP request to port 9000 as the initial event.
+  * Due to timing waiting for the container to startup this part will loop till it gets a HTTP success status code.
+* Read the stdout and stderr coming from the process that started the container.
+* Look for the output line that says `Billed Duration`. 
+  * The Billed Duration captures how much time was spent in just the .NET Lambda part and not container and RIE startup.
+* Once the Billed Duration is found kill the container because we only want to capture first invokes.
+* Add the duration to the collection of results.
+* After the 50 iterations are done compute the P80.
+  * I went with P80 figuring there would be a lot more noise running locally then in the Lambda environment.
+
+I'm my machine I'm seeing the following results showing .NET 10 is slower on cold start.
+```
+P80 .NET 10: 1188.6000000000001
+P80 .NET  8: 1002.8
+```
+
+
 ## Attempt to reproduce the issue in a non-Lambda environment
 
 In this repo I have the [DotnetStartupPerformanceTest](./DotnetStartupPerformanceTest) solution. It is a simple console application that opens a socket then a client to connect to the socket and send a simple message and then shutdown. I just want some startup code to run but still have the program be sure. I'm not sure the following results are correlated with what I'm seeing in Lambda but it might be helpful for testing outside of Lambda.
