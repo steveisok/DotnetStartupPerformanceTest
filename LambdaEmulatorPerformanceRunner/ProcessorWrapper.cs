@@ -29,6 +29,7 @@ public class ProcessorWrapper
             throw new Exception($"Docker build failed with exit code {process!.ExitCode}:\n{output}\n{error}");
     }
 
+    static int _hostPort = 9000;
     public static double RunDockerImageUntilBilledDuration(string imageName)
     {
         KillContainer();
@@ -36,7 +37,7 @@ public class ProcessorWrapper
         var process = Process.Start(new ProcessStartInfo
         {
             FileName = "docker",
-            Arguments = $"run --name {TEST_CONTAINER_NAME} --cpus=0.1 --rm -p 9000:8080 {imageName}",
+            Arguments = $"run --name {TEST_CONTAINER_NAME} --cpus=0.1 --rm -p {_hostPort}:8080 {imageName}",
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true
@@ -65,22 +66,27 @@ public class ProcessorWrapper
         process.BeginErrorReadLine();
         process.BeginOutputReadLine();
 
-        _ = InvokeLambdaFunction();
+        CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+        _ = InvokeLambdaFunction(cancellationTokenSource.Token);
 
         process.WaitForExit(TimeSpan.FromMinutes(1));
 
         if (duration == null)
+        {
+            cancellationTokenSource.Cancel();
+            _hostPort++;
             throw new Exception("Failed to find Billed Duration in output\n" + outputBuilder.ToString());
+        }
 
         return duration.Value;
     }
 
-    static async Task InvokeLambdaFunction()
+    static async Task InvokeLambdaFunction(CancellationToken cancellationToken)
     {
         int attempt = 1;
-        while(true)
+        while(!cancellationToken.IsCancellationRequested)
         {
-            var url = "http://localhost:9000/2015-03-31/functions/function/invocations";
+            var url = $"http://localhost:{_hostPort}/2015-03-31/functions/function/invocations";
             using var client = new HttpClient()
             {
                 Timeout = TimeSpan.FromSeconds(5)

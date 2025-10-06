@@ -21,8 +21,18 @@ static double ComputeP80(string imageName)
     for(var i = 0; i < 50; i++)
     {
         Console.WriteLine("\tIteration: " + i);
-        var duration = ProcessorWrapper.RunDockerImageUntilBilledDuration(imageName);
-        durations.Add(duration);
+        try
+        {
+            var duration = ProcessorWrapper.RunDockerImageUntilBilledDuration(imageName);
+            durations.Add(duration);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error during execution: " + ex.Message);
+            ProcessorWrapper.KillContainer(); // Double check container is killed
+            Thread.Sleep(2000); // Wait a bit before retrying to see if maybe the container and port mapping took longer to clean up.
+            i--; // retry this iteration
+        }
     }
 
     var p80 = Percentile(durations, .8);
