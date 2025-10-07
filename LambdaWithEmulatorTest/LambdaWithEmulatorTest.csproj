@@ -31,4 +31,20 @@
     <PackageReference Include="Amazon.Lambda.Core" Version="2.5.1" />
     <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="2.4.4" />
   </ItemGroup>
+
+  <Target Name="_CustomRuntimePack" 
+          Condition="'$(TargetFramework)' == 'net10.0'" 
+          AfterTargets="ResolveFrameworkReferences" >
+
+    <PropertyGroup>
+      <_LocalMicrosoftNetCoreAppRuntimePackDir>/var/packs/</_LocalMicrosoftNetCoreAppRuntimePackDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <ResolvedRuntimePack PackageDirectory="$(_LocalMicrosoftNetCoreAppRuntimePackDir)"
+                           Condition="'$(_LocalMicrosoftNetCoreAppRuntimePackDir)' != '' and
+                                      '%(ResolvedRuntimePack.FrameworkName)' == 'Microsoft.NETCore.App'" />
+    </ItemGroup>
+    <Message Text="Used runtime pack: %(ResolvedRuntimePack.PackageDirectory)" Importance="high" />
+
+  </Target>
 </Project>
