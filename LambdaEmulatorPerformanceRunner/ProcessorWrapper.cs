@@ -104,7 +104,7 @@ public class ProcessorWrapper
             try
             {
                 Console.WriteLine($"**** Invoking Lambda function (Attempt {attempt})****");
-                using var response = await client.SendAsync(request);
+                using var response = await client.SendAsync(request, cancellationToken);
                 if (response.IsSuccessStatusCode)
                 {
                     Console.WriteLine("**** Successfully invoked Lambda function ****");
