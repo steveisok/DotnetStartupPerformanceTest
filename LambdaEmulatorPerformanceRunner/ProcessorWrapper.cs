@@ -67,13 +67,19 @@ public class ProcessorWrapper
         process.BeginOutputReadLine();
 
         CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-        _ = InvokeLambdaFunction(cancellationTokenSource.Token);
-
-        process.WaitForExit(TimeSpan.FromMinutes(1));
+        cancellationTokenSource.CancelAfter(TimeSpan.FromMinutes(1));
+        try
+        {
+            _ = InvokeLambdaFunction(cancellationTokenSource.Token);
+            process.WaitForExit(TimeSpan.FromMinutes(1));
+        }
+        finally
+        {
+            cancellationTokenSource.Cancel();
+        }
 
         if (duration == null)
         {
-            cancellationTokenSource.Cancel();
             _hostPort++;
             throw new Exception("Failed to find Billed Duration in output\n" + outputBuilder.ToString());
         }
